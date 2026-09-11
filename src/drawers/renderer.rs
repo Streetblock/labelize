@@ -944,13 +944,13 @@ impl Renderer {
         canvas: &mut RgbaImage,
         bc: &crate::elements::barcode_datamatrix::BarcodeDatamatrixWithData,
     ) -> Result<(), String> {
-        // The encoder implements ECC 200 only. In ZPL, omitted quality is
+        // In ZPL, omitted quality is
         // ECC 000, not permission to substitute a different symbology.
         match bc.barcode.quality {
-            200 => {}
-            quality @ (0 | 50 | 80 | 100 | 140) => {
+            0 | 200 => {}
+            quality @ (50 | 80 | 100 | 140) => {
                 return Err(crate::error::LabelizeError::Render(format!(
-                    "Unsupported DataMatrix quality {quality}: only ECC 200 is supported; legacy ECC encoding is not implemented."
+                    "Unsupported DataMatrix quality {quality}: only ECC 000 and ECC 200 are supported; convolutional legacy ECC encoding is not implemented."
                 )).to_string());
             }
             quality => {
@@ -961,8 +961,29 @@ impl Renderer {
             }
         }
         let scale = bc.barcode.height.max(1);
-        let img_raw =
-            barcodes::datamatrix::encode(&bc.data, scale, bc.barcode.rows, bc.barcode.columns)?;
+        let img_raw = if bc.barcode.quality == 0 {
+            // Legacy g (ECC 200 escapes) has no effect. Dedicated Legacy field
+            // escapes remain explicit errors until their printer behavior is tested.
+            if bc.data.contains("\\&") || bc.data.contains("\\\\") || bc.data.contains("||") {
+                return Err("Legacy DataMatrix: legacy field escape syntax is not implemented; use the literal byte encoder API".into());
+            }
+            if !bc.data.is_ascii() {
+                return Err("Legacy DataMatrix: non-ASCII ZPL byte preservation is not implemented; use the literal byte encoder API".into());
+            }
+            if bc.barcode.ratio
+                == Some(crate::elements::barcode_datamatrix::DatamatrixRatio::Rectangular)
+            {
+                return Err("Legacy DataMatrix: rectangular symbols are not supported".into());
+            }
+            let format = u8::try_from(bc.barcode.format)
+                .map_err(|_| "Legacy DataMatrix: format must be 1 through 6")?;
+            let size =
+                barcodes::datamatrix_legacy::zpl_symbol_size(bc.barcode.rows, bc.barcode.columns)?;
+            barcodes::datamatrix_legacy::encode(bc.data.as_bytes(), format, size)?
+                .to_image(scale as usize, scale as usize)
+        } else {
+            barcodes::datamatrix::encode(&bc.data, scale, bc.barcode.rows, bc.barcode.columns)?
+        };
         let pos = adjust_image_typeset_position(&img_raw, &bc.position, bc.barcode.orientation);
         overlay_with_rotation(canvas, &img_raw, &pos, bc.barcode.orientation);
         Ok(())

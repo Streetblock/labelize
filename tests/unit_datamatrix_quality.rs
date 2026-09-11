@@ -25,19 +25,14 @@ fn omitted_and_empty_quality_remain_zero_and_are_not_rendered_as_ecc200() {
     for parameters in ["N,4", "N,4,", "N,4,,0,0,6"] {
         let label = parse(parameters);
         assert_eq!(quality(&label), 0);
-        let error = render(&label)
-            .err()
-            .expect("ECC 000 must not silently become ECC 200");
-        assert!(
-            error.contains("Unsupported DataMatrix quality 0"),
-            "{error}"
-        );
+        assert_eq!(render(&label).unwrap(), render(&parse("N,4,0")).unwrap());
+        assert_ne!(render(&label).unwrap(), render(&parse("N,4,200")).unwrap());
     }
 }
 
 #[test]
-fn all_legacy_qualities_are_preserved_and_reported_as_unsupported() {
-    for value in ["0", "000", "50", "050", "80", "080", "100", "140"] {
+fn convolutional_legacy_qualities_are_preserved_and_reported_as_unsupported() {
+    for value in ["50", "050", "80", "080", "100", "140"] {
         let label = parse(&format!("N,4,{value}"));
         let expected = value.parse::<i32>().unwrap();
         assert_eq!(quality(&label), expected);
@@ -48,7 +43,10 @@ fn all_legacy_qualities_are_preserved_and_reported_as_unsupported() {
             error.contains(&format!("Unsupported DataMatrix quality {expected}")),
             "{error}"
         );
-        assert!(error.contains("only ECC 200 is supported"), "{error}");
+        assert!(
+            error.contains("only ECC 000 and ECC 200 are supported"),
+            "{error}"
+        );
     }
 }
 
@@ -77,10 +75,7 @@ fn quality_defaults_do_not_inherit_ecc200_from_previous_fields_or_labels() {
         other => panic!("expected DataMatrix, got {other:?}"),
     }
     for label in &labels {
-        assert!(render(label)
-            .err()
-            .expect("omitted quality must fail")
-            .contains("Unsupported DataMatrix quality 0"));
+        assert!(render(label).is_ok());
     }
 }
 

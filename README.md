@@ -223,13 +223,15 @@ std::fs::write("output.png", buf.into_inner()).unwrap();
 | **Label Control** | `^XA` `^XZ` `^PW` `^PO` `^LH` `^LR` `^LT` (label top) `^LS` (label shift) `^LL` (label length) `^CI` `^MU` (units of measurement) `^PQ` (print quantity) `^FX` (comment) `^SN`/`^SF` (serial state) |
 | **Stored Formats** | `^DF` `^XF` |
 
-DataMatrix rendering supports **ECC 200 only**. Specify quality `200` explicitly
-in ZPL, for example `^BXN,4,200`. Omitted or empty `^BX` quality defaults to ECC 000
-as specified by Zebra; qualities `0`, `50`, `80`, `100`, and `140` are parsed but
-return an unsupported-quality rendering error instead of silently producing an
-ECC 200 symbol. Invalid numeric qualities also return an error. EPL DataMatrix
-uses ECC 200 automatically. See the [Zebra ^BX reference](https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bx.html)
-and [EPL Programming Guide](https://www.zebra.com/content/dam/support-dam/en/documentation/unrestricted/guide/software/epl2-pm-en.pdf).
+DataMatrix rendering supports **ECC 000 and ECC 200**. Omitted or empty ZPL
+`^BX` quality defaults to ECC 000, as specified by Zebra; use `^BXN,4,200`
+for modern ECC 200. The first Legacy path supports six encodation formats,
+CRC, randomization and square symbols 9..49. ECC 050/080/100/140, non-ASCII
+Legacy ZPL data and Legacy field escapes remain explicit errors; they never
+silently become ECC 200. The raw ECC 000 encoder API accepts bytes.
+EPL DataMatrix continues to use ECC 200. See [Legacy scope and evidence](docs/DATAMATRIX_LEGACY.md)
+for the norm-based implementation, printer observations, limitations and source
+attribution. No independent overall validation is claimed.
 
 ### EPL Commands
 
