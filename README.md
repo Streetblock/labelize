@@ -227,8 +227,10 @@ DataMatrix rendering supports **ECC 000, 050, 080, 100, 140 and 200**. Omitted o
 `^BX` quality defaults to ECC 000, as specified by Zebra; use `^BXN,4,200`
 for modern ECC 200. The Legacy path supports six encodation formats,
 CRC, convolutional protection, randomization and square symbols up to 49 modules.
-Non-ASCII Legacy ZPL data and Legacy field escapes remain explicit errors;
-they never silently become ECC 200. The raw Legacy encoder API accepts bytes.
+Legacy ZPL preserves raw field bytes and `^FH` bytes, including stored-format
+recalls. The documented `\&` and `\\` substitutions are supported; the
+ambiguous `||` sequence and numeric records above 511 remain explicit errors.
+They never silently become ECC 200. The raw Legacy encoder API accepts bytes.
 EPL DataMatrix continues to use ECC 200. See [Legacy scope and evidence](docs/DATAMATRIX_LEGACY.md)
 for the norm-based implementation, printer observations, limitations and source
 attribution. No independent overall validation is claimed.

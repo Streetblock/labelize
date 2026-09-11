@@ -26,4 +26,7 @@ pub struct BarcodeDatamatrixWithData {
     pub barcode: BarcodeDatamatrix,
     pub position: LabelPosition,
     pub data: String,
+    /// Original ZPL field bytes after ^FH processing, before barcode escapes.
+    /// Legacy encoders consume these without a Unicode round trip.
+    pub data_bytes: Option<Vec<u8>>,
 }

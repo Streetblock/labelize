@@ -770,6 +770,7 @@ fn parse_epl_2d_barcode(
                         },
                         position: pos,
                         data: content.to_string(),
+                        data_bytes: None,
                     })
                 }
                 "M" => {

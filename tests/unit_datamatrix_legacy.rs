@@ -112,6 +112,45 @@ fn convolutional_byte_capacity_and_size_limits_are_explicit() {
 }
 
 #[test]
+fn zebra_maximum_field_table_matches_except_unresolved_long_numeric_ecc000() {
+    // Zebra BX "Maximum Field Sizes", columns format IDs 1 through 6.
+    let rows = [
+        (0, [596, 452, 394, 413, 310, 271]),
+        (50, [457, 333, 291, 305, 228, 200]),
+        (80, [402, 293, 256, 268, 201, 176]),
+        (100, [300, 218, 190, 200, 150, 131]),
+        (140, [144, 105, 91, 96, 72, 63]),
+    ];
+    for (quality, capacities) in rows {
+        for (index, capacity) in capacities.into_iter().enumerate() {
+            let format = index as u8 + 1;
+            let byte = if format == 1 { b'1' } else { b'A' };
+            let data = vec![byte; capacity];
+            if quality == 0 && format == 1 {
+                let error = datamatrix_legacy::encode_with_ecc(&data, format, quality, Some(49))
+                    .unwrap_err();
+                assert!(error.contains("not yet supported"));
+                continue;
+            }
+            assert!(
+                datamatrix_legacy::encode_with_ecc(&data, format, quality, Some(49)).is_ok(),
+                "ECC {quality}, format {format}"
+            );
+            assert!(
+                datamatrix_legacy::encode_with_ecc(
+                    &vec![byte; capacity + 1],
+                    format,
+                    quality,
+                    Some(49)
+                )
+                .is_err(),
+                "ECC {quality}, format {format}"
+            );
+        }
+    }
+}
+
+#[test]
 fn mixed_legacy_labels_reset_quality_and_convolution_state() {
     let qualities = [140, 50, 100, 80, 0, 140];
     let source: String = qualities
@@ -213,9 +252,7 @@ fn zpl_unsupported_or_invalid_legacy_fields_fail_explicitly() {
         "^XA^BXN,2,0,0,0,1^FDAB12^FS^XZ",
         "^XA^BXN,2,0,0,0,7^FDAB12^FS^XZ",
         "^XA^BXN,2,0,0,0,6,_,2^FDAB12^FS^XZ",
-        "^XA^BXN,2,0^FDAB\\&12^FS^XZ",
         "^XA^BXN,2,0^FDAB||12^FS^XZ",
-        "^XA^BXN,2,0^FDä^FS^XZ",
     ] {
         assert!(render(source.as_bytes()).is_err(), "{source}");
     }

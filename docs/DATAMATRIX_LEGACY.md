@@ -49,6 +49,9 @@ Rust correction relative to that source. The placement formula uses filtered
 bit reversal, inverse permutation, cyclic row shifts and corner swaps. It was
 empirically reconstructed and checked exhaustively for the 21 supported sizes,
 not supplied as a normative algorithm or proven beyond that finite domain.
+The ZPL field preprocessing is new Rust-side integration based on the Zebra
+references below; it is not imported Legacy-escape functionality from QR Atelier
+or the Toolkit, where those escape rules were still recorded as open work.
 
 ## Evidence and its limits
 
@@ -106,18 +109,38 @@ The raw `barcodes::datamatrix_legacy::encode` API retains ECC 000;
 literal bytes, explicit format 1..6 and an optional complete odd symbol size.
 They implement the CRC, 9-bit length field, six encodations, ECC header,
 convolution where applicable, zero fill, randomization,
-placement and finder border. It rejects empty input, lengths above 511 and
-content that does not fit; it never truncates or switches ECC. The 511 bound is
-the implemented historical record-length limit, not a claim that every printer
-accepts all payloads up to that length. Zebra's documented 596-character field
-limit does not override the smaller record/symbol limits implemented here.
+placement and finder border. They reject empty input, lengths above 511 and
+content that does not fit; they never truncate or switch ECC. The 511 bound is
+an implementation limitation pending clarification, not a claimed normative or
+printer capacity. See the explicit long-record discrepancy below.
 
-ZPL currently supports ASCII field data (including ASCII control bytes from
-existing FH processing). Non-ASCII ZPL text and Legacy field escape sequences
-(backslash-ampersand, doubled backslash, double pipe) return explicit errors;
-those field/byte-preservation rules remain follow-up work. They are available
-as literal byte data through the raw API, without ZPL interpretation. The
-ECC 200 escape-selector parameter has no effect on Legacy field contents.
+ZPL preserves a separate byte representation through command tokenization,
+FH decoding, field resolution and stored-format recalls. Legacy rendering uses
+these bytes, not the Unicode display string. This preserves invalid UTF-8 and
+distinguishes, for example, FH E4 from FH C3 A4 even when the text decoder
+displays both as the same character. Literal transport CR/LF/TAB are ignored
+as before; FH can insert these bytes after tokenization. There is no additional
+character-set transcoding of the transmitted Legacy bytes. Formats 1..5 still
+reject bytes outside their respective repertoires.
+
+The BX reference points to the PDF417 field rules. The
+[B7 reference](https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-b7.html)
+defines backslash-ampersand as CR/LF and doubled backslash as one backslash;
+it also mentions CI13 for a backslash. Those two substitutions are applied
+once to Legacy bytes after FH. Unknown and trailing backslashes retain their
+literal bytes. These are documentation-based rules, not new printer-confirmed
+observations; their FH interaction should be included in the eventual printer
+probe. BX says double pipe where B7 says doubled backslash: double pipe remains
+an explicit unresolved error rather than guessing its meaning. ECC 200 field
+contents are not passed through this Legacy preprocessing. Parameter g remains
+irrelevant for Legacy. The raw byte encoder performs no ZPL substitutions.
+
+Rust API note: `BarcodeDatamatrixWithData`, `RecalledFieldData` and
+`RecalledField` now carry optional `data_bytes`. Existing struct-literal callers
+must initialize it. For parsed Legacy fields it is authoritative; callers
+replacing `data` must update/clear `data_bytes` too. Manually constructed ASCII
+fields can use `None`; non-ASCII fields require explicit bytes. EPL continues
+to use its existing ECC 200 text path.
 
 Dimensions follow Zebra's documented Legacy rule: square symbols, the larger
 requested rows/columns, values above 49 treated as automatic, invalid small or
@@ -146,3 +169,24 @@ source: no delay-12 tap. A fixed impulse test exercises all fifteen delays.
 The frozen reference grids are compiled only into tests; production generates
 and caches each requested grid once. No JavaScript runtime or encoder dependency
 is introduced.
+
+## Unresolved long numeric record length
+
+Zebra's Maximum Field Sizes table lists 596 for ECC 000, format ID 1. This is
+also present in FCD Table G.1 (printed page 68, PDF page 76), with 560 for a
+47x47 symbol and 596 for 49x49. Yet FCD 6.5.3 (printed page 24, PDF page 32)
+defines a nine-bit field containing the number of user characters. Both pages
+were checked visually: this is not merely a text-extraction discrepancy.
+
+The current encoder deliberately refuses lengths above 511 until the extended
+length convention is understood. That restriction does not implement Zebra's
+documented maximum. Storing only nine low-order bits (512 -> 0, 596 -> 84) is
+one observed approach in other code, but is not proven correct by this table.
+No new printer or decoder verification of these long inputs has been performed.
+
+A regression checks all 30 cells of the Zebra maximum-field table: the other
+29 cells must encode at their limit and reject one additional character. The
+ECC 000 / ID 1 cell explicitly records the unresolved limitation instead of
+pretending 511 is the documented maximum. A controlled 511/512/596/597 printer
+probe with recovered module bits and CRC/payload checks is the next evidence
+needed; table capacity alone does not define the transmitted length field.

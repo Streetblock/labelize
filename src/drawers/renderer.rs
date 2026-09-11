@@ -957,14 +957,18 @@ impl Renderer {
         }
         let scale = bc.barcode.height.max(1);
         let img_raw = if bc.barcode.quality != 200 {
-            // Legacy g (ECC 200 escapes) has no effect. Dedicated Legacy field
-            // escapes remain explicit errors until their printer behavior is tested.
-            if bc.data.contains("\\&") || bc.data.contains("\\\\") || bc.data.contains("||") {
-                return Err("Legacy DataMatrix: legacy field escape syntax is not implemented; use the literal byte encoder API".into());
-            }
-            if !bc.data.is_ascii() {
-                return Err("Legacy DataMatrix: non-ASCII ZPL byte preservation is not implemented; use the literal byte encoder API".into());
-            }
+            // Legacy g (ECC 200 escapes) has no effect. Consume preserved field
+            // bytes instead of attempting to reverse the display text decoding.
+            let input = match bc.data_bytes.as_deref() {
+                Some(bytes) => bytes,
+                None if bc.data.is_ascii() => bc.data.as_bytes(),
+                None => {
+                    return Err(
+                        "Legacy DataMatrix: non-ASCII data requires explicit data_bytes".into(),
+                    )
+                }
+            };
+            let data = barcodes::datamatrix_legacy::prepare_zpl_field(input)?;
             if bc.barcode.ratio
                 == Some(crate::elements::barcode_datamatrix::DatamatrixRatio::Rectangular)
             {
@@ -975,7 +979,7 @@ impl Renderer {
             let size =
                 barcodes::datamatrix_legacy::zpl_symbol_size(bc.barcode.rows, bc.barcode.columns)?;
             barcodes::datamatrix_legacy::encode_with_ecc(
-                bc.data.as_bytes(),
+                &data,
                 format,
                 bc.barcode.quality as u16,
                 size,

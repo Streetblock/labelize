@@ -14,6 +14,37 @@ use std::sync::OnceLock;
 
 static PLACEMENTS: [OnceLock<Vec<usize>>; 21] = [const { OnceLock::new() }; 21];
 
+/// ZPL Legacy field processing after ^FH. The BX reference points to B7:
+/// backslash-ampersand inserts CR/LF; doubled backslash inserts one backslash.
+/// BX's double-pipe wording has no unambiguous mapping in that reference.
+pub fn prepare_zpl_field(input: &[u8]) -> Result<Vec<u8>, String> {
+    if input.windows(2).any(|pair| pair == b"||") {
+        return Err("Legacy DataMatrix: double-pipe field escape semantics are unresolved".into());
+    }
+    let mut output = Vec::with_capacity(input.len());
+    let mut index = 0;
+    while index < input.len() {
+        if input[index] == b'\\' && index + 1 < input.len() {
+            match input[index + 1] {
+                b'&' => {
+                    output.extend_from_slice(b"\r\n");
+                    index += 2;
+                    continue;
+                }
+                b'\\' => {
+                    output.push(b'\\');
+                    index += 2;
+                    continue;
+                }
+                _ => {}
+            }
+        }
+        output.push(input[index]);
+        index += 1;
+    }
+    Ok(output)
+}
+
 /// Return the immutable placement for an odd complete symbol size 9..=49.
 /// Each requested size is computed once; no normative grid ships at runtime.
 pub fn placement_for_size(symbol_side: usize) -> Result<&'static [usize], String> {
@@ -228,11 +259,11 @@ pub fn encode_with_ecc(
     symbol_size: Option<usize>,
 ) -> Result<BitMatrix, String> {
     let config = ecc_config(quality)?;
-    if data.is_empty() || data.len() > 511 {
-        return Err(
-            "Legacy DataMatrix: input length must be 1 through 511 bytes (9-bit record length)"
-                .into(),
-        );
+    if data.is_empty() {
+        return Err("Legacy DataMatrix: input must not be empty".into());
+    }
+    if data.len() > 511 {
+        return Err("Legacy DataMatrix: lengths above 511 are not yet supported; extended record-length semantics are unresolved".into());
     }
     let content = encode_data(data, format)?;
     let mut record: Vec<bool> = (0..5)
