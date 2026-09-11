@@ -947,12 +947,7 @@ impl Renderer {
         // In ZPL, omitted quality is
         // ECC 000, not permission to substitute a different symbology.
         match bc.barcode.quality {
-            0 | 200 => {}
-            quality @ (50 | 80 | 100 | 140) => {
-                return Err(crate::error::LabelizeError::Render(format!(
-                    "Unsupported DataMatrix quality {quality}: only ECC 000 and ECC 200 are supported; convolutional legacy ECC encoding is not implemented."
-                )).to_string());
-            }
+            0 | 50 | 80 | 100 | 140 | 200 => {}
             quality => {
                 return Err(crate::error::LabelizeError::Render(format!(
                     "Invalid DataMatrix quality {quality}: expected 0, 50, 80, 100, 140, or 200."
@@ -961,7 +956,7 @@ impl Renderer {
             }
         }
         let scale = bc.barcode.height.max(1);
-        let img_raw = if bc.barcode.quality == 0 {
+        let img_raw = if bc.barcode.quality != 200 {
             // Legacy g (ECC 200 escapes) has no effect. Dedicated Legacy field
             // escapes remain explicit errors until their printer behavior is tested.
             if bc.data.contains("\\&") || bc.data.contains("\\\\") || bc.data.contains("||") {
@@ -979,8 +974,13 @@ impl Renderer {
                 .map_err(|_| "Legacy DataMatrix: format must be 1 through 6")?;
             let size =
                 barcodes::datamatrix_legacy::zpl_symbol_size(bc.barcode.rows, bc.barcode.columns)?;
-            barcodes::datamatrix_legacy::encode(bc.data.as_bytes(), format, size)?
-                .to_image(scale as usize, scale as usize)
+            barcodes::datamatrix_legacy::encode_with_ecc(
+                bc.data.as_bytes(),
+                format,
+                bc.barcode.quality as u16,
+                size,
+            )?
+            .to_image(scale as usize, scale as usize)
         } else {
             barcodes::datamatrix::encode(&bc.data, scale, bc.barcode.rows, bc.barcode.columns)?
         };

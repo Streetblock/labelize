@@ -28,14 +28,30 @@ fn check_matrices(fixtures: &str) {
     for fixture in normalized.trim().split("\n\n") {
         let mut lines = fixture.lines();
         let header: Vec<_> = lines.next().unwrap().split('|').collect();
-        let format = header[0].parse().unwrap();
-        let size = header[1].parse().unwrap();
-        let bytes: Vec<u8> = header[2]
+        let offset = usize::from(header.len() == 4);
+        let quality = if offset == 1 {
+            header[0].parse().unwrap()
+        } else {
+            0
+        };
+        let format = header[offset].parse().unwrap();
+        let size = header[offset + 1].parse().unwrap();
+        let bytes: Vec<u8> = header[offset + 2]
             .as_bytes()
             .chunks(2)
             .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).unwrap(), 16).unwrap())
             .collect();
-        let matrix = datamatrix_legacy::encode(&bytes, format, Some(size)).unwrap();
+        let matrix =
+            datamatrix_legacy::encode_with_ecc(&bytes, format, quality, Some(size)).unwrap();
+        // Fixtures either request the maximum size or record automatic sizing.
+        if size != 49 {
+            assert_eq!(
+                datamatrix_legacy::encode_with_ecc(&bytes, format, quality, None)
+                    .unwrap()
+                    .width(),
+                size
+            );
+        }
         let rows: Vec<_> = lines.collect();
         assert_eq!(matrix.width(), rows.len());
         for (y, row) in rows.iter().enumerate() {
@@ -44,10 +60,77 @@ fn check_matrices(fixtures: &str) {
                 assert_eq!(
                     matrix.get(x, y),
                     value == b'1',
-                    "size {size}, format {format}, ({x},{y})"
+                    "ECC {quality}, size {size}, format {format}, ({x},{y})"
                 );
             }
         }
+    }
+}
+
+#[test]
+fn ecc050_matches_the_published_annex_q_matrix() {
+    check_matrices(include_str!("../testdata/legacy/ecc050-annex-q-matrix.txt"));
+}
+
+#[test]
+fn convolutional_matrices_match_same_source_js_port_vectors() {
+    check_matrices(include_str!(
+        "../testdata/legacy/convolution-js-matrices.txt"
+    ));
+}
+
+#[test]
+fn convolutional_byte_capacity_and_size_limits_are_explicit() {
+    for (quality, minimum, maximum_bytes) in
+        [(50, 11, 200), (80, 13, 176), (100, 13, 131), (140, 17, 63)]
+    {
+        for size in (9..minimum).step_by(2) {
+            assert!(datamatrix_legacy::encode_with_ecc(b"1", 1, quality, Some(size)).is_err());
+        }
+        assert_eq!(
+            datamatrix_legacy::encode_with_ecc(b"1", 1, quality, None)
+                .unwrap()
+                .width(),
+            minimum
+        );
+        let data = vec![0; maximum_bytes];
+        assert_eq!(
+            datamatrix_legacy::encode_with_ecc(&data, 6, quality, None)
+                .unwrap()
+                .width(),
+            49
+        );
+        assert!(
+            datamatrix_legacy::encode_with_ecc(&vec![0; maximum_bytes + 1], 6, quality, None)
+                .is_err()
+        );
+        assert!(datamatrix_legacy::encode_with_ecc(&data, 6, quality, Some(47)).is_err());
+    }
+    for quality in [1, 49, 51, 200, u16::MAX] {
+        assert!(datamatrix_legacy::encode_with_ecc(b"A", 6, quality, None).is_err());
+    }
+}
+
+#[test]
+fn mixed_legacy_labels_reset_quality_and_convolution_state() {
+    let qualities = [140, 50, 100, 80, 0, 140];
+    let source: String = qualities
+        .iter()
+        .map(|quality| format!("^XA^FO20,20^BXN,2,{quality}^FDAB12^FS^XZ"))
+        .collect();
+    let labels = ZplParser::new().parse(source.as_bytes()).unwrap();
+    assert_eq!(labels.len(), qualities.len());
+    for (label, quality) in labels.iter().zip(qualities) {
+        let mut output = Cursor::new(Vec::new());
+        Renderer::new()
+            .draw_label_as_png(label, &mut output, DrawerOptions::default())
+            .unwrap();
+        let actual = image::load_from_memory(output.get_ref())
+            .unwrap()
+            .to_rgba8();
+        let standalone =
+            render(format!("^XA^FO20,20^BXN,2,{quality}^FDAB12^FS^XZ").as_bytes()).unwrap();
+        assert_eq!(actual, standalone, "quality {quality}");
     }
 }
 
@@ -74,8 +157,8 @@ fn render(zpl: &[u8]) -> Result<image::RgbaImage, String> {
         .to_rgba8())
 }
 
-fn assert_drawn(matrix: &BitMatrix, orientation: &str) {
-    let source = format!("^XA^FO20,20^BX{orientation},2,0,13,17,6^FDAB12^FS^XZ");
+fn assert_drawn(matrix: &BitMatrix, orientation: &str, quality: u16) {
+    let source = format!("^XA^FO20,20^BX{orientation},2,{quality},13,23,6^FDAB12^FS^XZ");
     let image = render(source.as_bytes()).unwrap();
     let expected = matrix.to_image(2, 2);
     let expected = match orientation {
@@ -96,10 +179,12 @@ fn assert_drawn(matrix: &BitMatrix, orientation: &str) {
 }
 
 #[test]
-fn zpl_routes_ecc000_dimensions_scaling_and_all_orientations() {
-    let matrix = datamatrix_legacy::encode(b"AB12", 6, Some(17)).unwrap();
-    for orientation in ["N", "R", "I", "B"] {
-        assert_drawn(&matrix, orientation);
+fn zpl_routes_all_legacy_qualities_dimensions_scaling_and_orientations() {
+    for quality in [0, 50, 80, 100, 140] {
+        let matrix = datamatrix_legacy::encode_with_ecc(b"AB12", 6, quality, Some(23)).unwrap();
+        for orientation in ["N", "R", "I", "B"] {
+            assert_drawn(&matrix, orientation, quality);
+        }
     }
     let automatic = render(b"^XA^FO20,20^BXN,2,0^FDAB12^FS^XZ").unwrap();
     assert_eq!(

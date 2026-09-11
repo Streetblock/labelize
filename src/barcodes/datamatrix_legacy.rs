@@ -7,7 +7,7 @@
 // Rust adaptation: byte input, bounded lazy cache, BitMatrix output. The
 // random-stream byte at index 211 uses the norm-confirmed BC value.
 
-//! Historical Data Matrix ECC 000. ECC 050-140 are not implemented here.
+//! Historical Data Matrix ECC 000, 050, 080, 100 and 140.
 
 use super::BitMatrix;
 use std::sync::OnceLock;
@@ -17,7 +17,7 @@ static PLACEMENTS: [OnceLock<Vec<usize>>; 21] = [const { OnceLock::new() }; 21];
 /// Return the immutable placement for an odd complete symbol size 9..=49.
 /// Each requested size is computed once; no normative grid ships at runtime.
 pub fn placement_for_size(symbol_side: usize) -> Result<&'static [usize], String> {
-    if !(9..=49).contains(&symbol_side) || symbol_side % 2 == 0 {
+    if !(9..=49).contains(&symbol_side) || symbol_side.is_multiple_of(2) {
         return Err("Legacy DataMatrix: symbol size must be odd, from 9 through 49".into());
     }
     Ok(PLACEMENTS[(symbol_side - 9) / 2].get_or_init(|| generate_placement(symbol_side)))
@@ -112,10 +112,122 @@ fn encode_data(data: &[u8], format: u8) -> Result<Vec<bool>, String> {
     Ok(bits)
 }
 
-/// Encode literal bytes; no ZPL escape interpretation or UTF-8 conversion.
+struct EccConfig {
+    header: &'static [u8],
+    minimum_side: usize,
+    input_width: usize,
+    flush_cycles: usize,
+    taps: &'static [&'static [usize]],
+}
+
+fn ecc_config(quality: u16) -> Result<EccConfig, String> {
+    // Flattened window: current input group, then successively older groups.
+    // Historical Annex K state machines, ported from the attributed JS source.
+    let (header, minimum_side, input_width, flush_cycles, taps): (
+        &[u8],
+        usize,
+        usize,
+        usize,
+        &[&[usize]],
+    ) = match quality {
+        0 => (b"0111111", 9, 1, 0, &[]),
+        50 => (
+            b"0111000000000111000",
+            11,
+            3,
+            3,
+            &[
+                &[0, 5, 8, 10, 11],
+                &[1, 4, 6, 9, 10],
+                &[2, 3, 4, 5, 6, 9],
+                &[0, 1, 2, 3, 4, 5, 7, 11],
+            ],
+        ),
+        80 => (
+            b"0111000000111000111",
+            13,
+            2,
+            11,
+            &[
+                &[0, 2, 6, 7, 10, 12, 14, 15, 17, 20, 23],
+                &[1, 2, 7, 8, 10, 13, 16, 17, 18, 19, 20],
+                &[0, 1, 3, 5, 9, 10, 12, 14, 15, 19, 23],
+            ],
+        ),
+        100 => (
+            b"0111000000111111111",
+            13,
+            1,
+            15,
+            &[
+                &[0, 2, 5, 6, 7, 8, 9, 10, 15],
+                // No tap at delay 12: confirmed in the historical diagrams.
+                &[0, 1, 3, 4, 6, 11, 13, 14, 15],
+            ],
+        ),
+        140 => (
+            b"0111000111000111111",
+            17,
+            1,
+            13,
+            &[
+                &[0, 4, 7, 10, 12, 13],
+                &[0, 3, 4, 7, 8, 9, 10, 11, 13],
+                &[0, 1, 2, 4, 5, 7, 9, 11, 12, 13],
+                &[0, 1, 2, 4, 5, 7, 9, 10, 11, 12, 13],
+            ],
+        ),
+        _ => return Err("Legacy DataMatrix: ECC must be 0, 50, 80, 100, or 140".into()),
+    };
+    Ok(EccConfig {
+        header,
+        minimum_side,
+        input_width,
+        flush_cycles,
+        taps,
+    })
+}
+
+fn protect_bits(input: &[bool], config: &EccConfig) -> Vec<bool> {
+    if config.taps.is_empty() {
+        return input.to_vec();
+    }
+    let width = config.input_width;
+    let groups = input.len().div_ceil(width);
+    let mut window = vec![false; (config.flush_cycles + 1) * width];
+    let mut output = Vec::with_capacity((groups + config.flush_cycles) * config.taps.len());
+    // Pad the final partial group, then flush the entire state with zero groups.
+    // The ECC header is added later and is never fed into this state machine.
+    for cycle in 0..groups + config.flush_cycles {
+        let history_end = window.len() - width;
+        window.copy_within(..history_end, width);
+        for (offset, slot) in window[..width].iter_mut().enumerate() {
+            *slot = input.get(cycle * width + offset).copied().unwrap_or(false);
+        }
+        output.extend(config.taps.iter().map(|taps| {
+            taps.iter()
+                .fold(false, |parity, &index| parity ^ window[index])
+        }));
+    }
+    output
+}
+
+/// Encode ECC 000 literal bytes; no ZPL escape interpretation or UTF-8 conversion.
 /// `symbol_size` is the complete square size including the finder border.
 /// Oversized input fails without truncation or fallback to a different ECC.
 pub fn encode(data: &[u8], format: u8, symbol_size: Option<usize>) -> Result<BitMatrix, String> {
+    encode_with_ecc(data, format, 0, symbol_size)
+}
+
+/// Encode a selected historical ECC quality (0, 50, 80, 100 or 140).
+/// Dimensions include the finder border; invalid or insufficient sizes fail.
+pub fn encode_with_ecc(
+    data: &[u8],
+    format: u8,
+    quality: u16,
+    symbol_size: Option<usize>,
+) -> Result<BitMatrix, String> {
+    let config = ecc_config(quality)?;
     if data.is_empty() || data.len() > 511 {
         return Err(
             "Legacy DataMatrix: input length must be 1 through 511 bytes (9-bit record length)"
@@ -123,17 +235,26 @@ pub fn encode(data: &[u8], format: u8, symbol_size: Option<usize>) -> Result<Bit
         );
     }
     let content = encode_data(data, format)?;
-    // ECC 000 header, then the five-bit format field in MSB-first order.
-    let mut bits = vec![false, true, true, true, true, true, true];
-    bits.extend((0..5).rev().map(|bit| (format - 1) & (1 << bit) != 0));
-    push_lsb(&mut bits, u32::from(crc_register(format, data)), 16);
-    push_lsb(&mut bits, data.len() as u32, 9);
-    bits.extend(content);
+    let mut record: Vec<bool> = (0..5)
+        .rev()
+        .map(|bit| (format - 1) & (1 << bit) != 0)
+        .collect();
+    push_lsb(&mut record, u32::from(crc_register(format, data)), 16);
+    push_lsb(&mut record, data.len() as u32, 9);
+    record.extend(content);
+    let mut bits: Vec<bool> = config.header.iter().map(|&bit| bit == b'1').collect();
+    bits.extend(protect_bits(&record, &config));
     let size = if let Some(size) = symbol_size {
         placement_for_size(size)?;
+        if size < config.minimum_side {
+            return Err(format!(
+                "Legacy DataMatrix: ECC {quality:03} requires a symbol size of at least {}",
+                config.minimum_side
+            ));
+        }
         size
     } else {
-        (9..=49)
+        (config.minimum_side..=49)
             .step_by(2)
             .find(|size| (size - 2) * (size - 2) >= bits.len())
             .ok_or("Legacy DataMatrix: content exceeds maximum symbol capacity")?
@@ -208,6 +329,53 @@ const MASTER_RANDOM: [u8; 277] = [
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ecc050_annex_q_protected_bits() {
+        let input = "000101001101010101110011000000001001011110110011111011111111110";
+        let expected = "000010101011111110101010101000000100001101101000010100011000000011101010100110101001100001001010";
+        let input: Vec<bool> = input.bytes().map(|b| b == b'1').collect();
+        assert_eq!(
+            bit_string(&protect_bits(&input, &ecc_config(50).unwrap())),
+            expected
+        );
+    }
+
+    #[test]
+    fn convolution_stages_match_js_port_including_partial_groups_and_flush() {
+        let fixtures = include_str!("../../testdata/legacy/convolution-js-stages.txt");
+        let mut count = 0;
+        for line in fixtures.lines() {
+            let fields: Vec<_> = line.split('|').collect();
+            let quality = fields[0].parse().unwrap();
+            let input: Vec<bool> = fields[1].bytes().map(|b| b == b'1').collect();
+            let config = ecc_config(quality).unwrap();
+            let actual = protect_bits(&input, &config);
+            assert_eq!(
+                bit_string(&actual),
+                fields[2],
+                "ECC {quality}, input length {}",
+                input.len()
+            );
+            assert_eq!(
+                actual.len(),
+                (input.len().div_ceil(config.input_width) + config.flush_cycles)
+                    * config.taps.len()
+            );
+            count += 1;
+        }
+        assert_eq!(count, 200);
+    }
+
+    #[test]
+    fn ecc100_has_no_delay_12_tap_and_flushes_all_15_delays() {
+        // Single input impulse from the reviewed Annex K diagram: two outputs
+        // per cycle, current cycle followed by all fifteen delayed cycles.
+        let actual = protect_bits(&[true], &ecc_config(100).unwrap());
+        assert_eq!(bit_string(&actual), "11011001011011101010100100010111");
+        assert_eq!(&actual[24..26], &[false, false]);
+        assert_eq!(&actual[30..32], &[true, true]);
+    }
 
     fn bit_string(bits: &[bool]) -> String {
         bits.iter().map(|&v| if v { '1' } else { '0' }).collect()

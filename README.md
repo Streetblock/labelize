@@ -223,12 +223,12 @@ std::fs::write("output.png", buf.into_inner()).unwrap();
 | **Label Control** | `^XA` `^XZ` `^PW` `^PO` `^LH` `^LR` `^LT` (label top) `^LS` (label shift) `^LL` (label length) `^CI` `^MU` (units of measurement) `^PQ` (print quantity) `^FX` (comment) `^SN`/`^SF` (serial state) |
 | **Stored Formats** | `^DF` `^XF` |
 
-DataMatrix rendering supports **ECC 000 and ECC 200**. Omitted or empty ZPL
+DataMatrix rendering supports **ECC 000, 050, 080, 100, 140 and 200**. Omitted or empty ZPL
 `^BX` quality defaults to ECC 000, as specified by Zebra; use `^BXN,4,200`
-for modern ECC 200. The first Legacy path supports six encodation formats,
-CRC, randomization and square symbols 9..49. ECC 050/080/100/140, non-ASCII
-Legacy ZPL data and Legacy field escapes remain explicit errors; they never
-silently become ECC 200. The raw ECC 000 encoder API accepts bytes.
+for modern ECC 200. The Legacy path supports six encodation formats,
+CRC, convolutional protection, randomization and square symbols up to 49 modules.
+Non-ASCII Legacy ZPL data and Legacy field escapes remain explicit errors;
+they never silently become ECC 200. The raw Legacy encoder API accepts bytes.
 EPL DataMatrix continues to use ECC 200. See [Legacy scope and evidence](docs/DATAMATRIX_LEGACY.md)
 for the norm-based implementation, printer observations, limitations and source
 attribution. No independent overall validation is claimed.

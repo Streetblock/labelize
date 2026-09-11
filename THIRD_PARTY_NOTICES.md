@@ -1,6 +1,6 @@
 # Source attribution
 
-## Legacy Data Matrix ECC 000
+## Legacy Data Matrix ECC 000-140
 
 `src/barcodes/datamatrix_legacy.rs` is adapted from David Block's QR Atelier
 Legacy encoder and placement generator, commit

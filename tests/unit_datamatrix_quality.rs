@@ -31,22 +31,15 @@ fn omitted_and_empty_quality_remain_zero_and_are_not_rendered_as_ecc200() {
 }
 
 #[test]
-fn convolutional_legacy_qualities_are_preserved_and_reported_as_unsupported() {
+fn convolutional_legacy_qualities_are_preserved_and_rendered_without_ecc200_fallback() {
     for value in ["50", "050", "80", "080", "100", "140"] {
         let label = parse(&format!("N,4,{value}"));
         let expected = value.parse::<i32>().unwrap();
         assert_eq!(quality(&label), expected);
-        let error = render(&label)
-            .err()
-            .expect("legacy encoder is not implemented");
-        assert!(
-            error.contains(&format!("Unsupported DataMatrix quality {expected}")),
-            "{error}"
-        );
-        assert!(
-            error.contains("only ECC 000 and ECC 200 are supported"),
-            "{error}"
-        );
+        let image = render(&label).unwrap();
+        assert_ne!(image, render(&parse("N,4,200")).unwrap());
+        assert_ne!(image, render(&parse("N,4,0")).unwrap());
+        assert_eq!(image, render(&parse(&format!("N,4,{expected}"))).unwrap());
     }
 }
 
