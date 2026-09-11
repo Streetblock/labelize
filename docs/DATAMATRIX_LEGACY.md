@@ -228,3 +228,19 @@ nine-bit overflow. The generic Rust encoder still accepts 501..511 when they
 fit: this is a known difference from the tested printer. No unverified global
 limit is introduced. A device-specific validation policy and `^CV` diagnostic
 rendering remain separate follow-up work.
+
+### Follow-up: explicit 49x49 does not bypass the boundary
+
+The contributor printed the six-label AUTO/fixed49 packet from commit
+`af4182e` and supplied a photo of N500/N501 on 2026-09-11. Both N500 fields
+contain symbols; both N501 fields show INVALID-L. The accompanying report
+states that all tested longer fields (511, 512, 596, 597) also fail in both
+columns. Those latter rows are reported, not visible in the supplied photo.
+The N500 symbols differ visibly; exact module counts and decoded content have
+not been recovered. Model/firmware are inherited from the preceding experiment.
+
+The fixed-size request therefore does not lift the observed boundary. This
+closes the size-selection versus field-length printer probe for the tested
+settings, but provides no extended record to resolve the nine-bit/596 conflict.
+Keep the generic encoder policy unchanged and do not infer a universal cap.
+See [the results and retained photo](../examples/legacy-printer-study/LENGTHS.md).

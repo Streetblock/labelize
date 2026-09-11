@@ -24,15 +24,27 @@ Put observations in a separate file; regeneration overwrites the manifest.
 
 | Digits | AUTO | Fixed 49x49 |
 | ---: | --- | --- |
-| 500 | pending control | pending control |
-| 501 | pending | pending |
-| 511 | pending | pending |
-| 512 | pending | pending |
-| 596 | pending | pending |
-| 597 | pending overflow control | pending overflow control |
+| 500 | symbol (photo) | symbol (photo) |
+| 501 | INVALID-L (photo) | INVALID-L (photo) |
+| 511 | INVALID-L (user report) | INVALID-L (user report) |
+| 512 | INVALID-L (user report) | INVALID-L (user report) |
+| 596 | INVALID-L (user report) | INVALID-L (user report) |
+| 597 | INVALID-L (user report) | INVALID-L (user report) |
 
-The prior user report established AUTO 500 printing and AUTO 501 INVALID-L on
-one ZD421. These are controls to reproduce, not results for this new job.
+The 2026-09-11 follow-up reproduced the prior AUTO 500/501 boundary and
+extended it to the explicit size request. The contributor supplied
+`length-500-501-photo.png` and reported that all tested lengths above 500
+returned INVALID-L, including the fixed-size column. The photo shows only
+N500 and N501; the remaining rows rely on that accompanying report.
+The two N500 matrices visibly differ and the contributor reports a size change;
+their exact module dimensions and payloads have not been recovered from the photo.
+Model/firmware are carried over from the prior ZD421 experiment, not re-queried.
+
+This printer experiment is complete: requesting 49x49 does not bypass the
+observed 500-character boundary. No >511 record was produced, so it cannot
+resolve the historical extended-length convention. No further length bisection
+on this device/settings is needed. This is a scoped compatibility observation,
+not a universal Legacy capacity or an independently decoded encoder vector.
 
 ## Interpretation criteria
 
