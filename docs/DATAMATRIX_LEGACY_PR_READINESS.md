@@ -7,17 +7,18 @@ that all checks below have already passed on the eventual submission commit.
 ## Completed
 
 - All five Legacy qualities, corrected generated placement and randomization,
-  byte-preserving ZPL field handling, and documented initial escapes exist.
+  byte-preserving ZPL field handling, and printer-backed literal fields exist.
 - The ZD421 500/501 boundary is recorded in `DATAMATRIX_LEGACY.md`, including
   evidence limits and the deliberate difference from the generic encoder.
 - Two small native printer jobs for CR/LF, FH order, backslash and double pipe
   are printed and evaluated in `examples/legacy-printer-study`. CI27 preserves
   literal backslashes and pipes; all six photo matrices match known-byte
-  candidates. This exposes a remaining preprocessing defect.
+  candidates. CI13 repeats these matrices. Speculative substitutions and pipe
+  rejection are removed; renderer regression tests cover both CI settings.
 - Read-only three-way merge inspection against PR #55 commit `c410a33` using
   base `c5ae397` found textual conflicts in `src/barcodes/mod.rs` and
   `src/drawers/renderer.rs`. The change is now integrated in this branch:
-  both encoder modules are retained, Legacy runs its own preprocessing first,
+  both encoder modules are retained, Legacy now consumes preserved bytes,
   ECC200 uses ZPL escapes only when enabled, and EPL retains literal ECC200.
   A mixed-quality document test covers escape-path and field-state isolation.
 - Integration validation: formatting and `cargo clippy --lib -- -D warnings`
@@ -29,11 +30,9 @@ that all checks below have already passed on the eventual submission commit.
 
 ## Remaining, in order
 
-1. L01/L02 CI27 outcomes are recorded. CI13 matches CI27 for all six fields. Correct the
-   incompatible Rust escape substitutions and double-pipe rejection. Select
-   any needed follow-ups for overlapping escapes and
-   other ECC levels. Turn supported observations into targeted regression tests.
-   Keep raw encoder bytes separate from ZPL preprocessing.
+1. The CI13/CI27 field correction is implemented and covered by tests. Hardware
+   follow-ups for other ECC levels and firmware remain explicit evidence gaps;
+   cross-quality tests verify policy consistency, not new printer observations.
 2. Reconcile with upstream PR #54 (quality handling) and PR #55 (ECC200 field
    escapes), choosing the final base after their current upstream state is
    checked. The Legacy branch now includes both fixes. Recheck upstream changes

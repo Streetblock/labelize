@@ -100,24 +100,6 @@ fn malformed_hex_is_literal_and_fv_keeps_bytes() {
     assert_rendered_bytes(&labels[0], &[0x80, 0xff], 0);
 }
 
-#[test]
-fn documented_legacy_escapes_are_single_pass_and_do_not_apply_ecc200_rules() {
-    for (input, expected) in [
-        (&b"A\\&B"[..], &b"A\r\nB"[..]),
-        (&b"\\&\\&"[..], &b"\r\n\r\n"[..]),
-        (&b"A\\\\B"[..], &b"A\\B"[..]),
-        (&b"\\\\&"[..], &b"\\&"[..]),
-        (&b"A\\"[..], &b"A\\"[..]),
-        (&b"_1ABC|Z\\q"[..], &b"_1ABC|Z\\q"[..]),
-    ] {
-        assert_eq!(
-            datamatrix_legacy::prepare_zpl_field(input).unwrap(),
-            expected
-        );
-    }
-    assert!(datamatrix_legacy::prepare_zpl_field(b"A||B").is_err());
-}
-
 fn rendered(source: &[u8]) -> Result<Vec<u8>, String> {
     let labels = ZplParser::new().parse(source)?;
     let mut output = Cursor::new(Vec::new());
@@ -126,16 +108,31 @@ fn rendered(source: &[u8]) -> Result<Vec<u8>, String> {
 }
 
 #[test]
-fn legacy_crlf_escapes_match_explicit_fh_control_bytes_for_all_qualities() {
-    for quality in [0, 50, 80, 100, 140] {
-        let prefix = format!("^XA^CI13^FO20,20^BXN,2,{quality},0,0,6");
-        let escaped = rendered(format!("{prefix}^FDAB\\&12\\\\Z\\&^FS^XZ").as_bytes()).unwrap();
-        let hex =
-            rendered(format!("{prefix}^FH_^FDAB_0D_0A12_5CZ_0D_0A^FS^XZ").as_bytes()).unwrap();
-        assert_eq!(escaped, hex);
+fn printer_observed_legacy_fields_preserve_literal_bytes_in_ci13_and_ci27() {
+    // L01-L04: measured ECC000/F6 on ZD421 V93.21.17Z, not PDF417 rules.
+    for ci in [13, 27] {
+        for (field, expected) in [
+            (r"^FDA\&B", &b"A\\&B"[..]),
+            ("^FH#^FDA#0D#0AB", &b"A\r\nB"[..]),
+            ("^FH#^FDA#5C#26B", &b"A\\&B"[..]),
+            (r"^FDA\\B", &b"A\\\\B"[..]),
+            ("^FH#^FDA#5CB", &b"A\\B"[..]),
+            ("^FDA||B", &b"A||B"[..]),
+        ] {
+            let source = format!("^XA^CI{ci}^FO20,20^BXN,2,0,0,0,6{field}^FS^XZ");
+            let labels = ZplParser::new().parse(source.as_bytes()).unwrap();
+            assert_rendered_bytes(&labels[0], expected, 0);
+        }
     }
-    for format in 1..=4 {
-        assert!(rendered(format!("^XA^BXN,2,0,0,0,{format}^FD12\\&34^FS^XZ").as_bytes()).is_err());
+}
+
+#[test]
+fn legacy_literal_policy_is_consistent_across_qualities() {
+    // Cross-quality implementation policy; hardware evidence is ECC000 only.
+    for quality in [0, 50, 80, 100, 140] {
+        let source = format!(r"^XA^FO20,20^BXN,2,{quality}^FD_1A\&\\||\q\^FS^XZ");
+        let labels = ZplParser::new().parse(source.as_bytes()).unwrap();
+        assert_rendered_bytes(&labels[0], br"_1A\&\\||\q\", quality);
     }
 }
 
@@ -163,8 +160,8 @@ fn switching_legacy_and_ecc200_keeps_escape_paths_isolated() {
             .unwrap();
         assert_eq!(output.into_inner(), rendered(source.as_bytes()).unwrap());
     }
-    // Legacy ignores g and preserves FNC-looking text, but expands CR/LF.
-    for (index, expected, quality) in [(1, &b"#1A\r\nB"[..], 0), (3, &b"_1A\r\nB"[..], 50)] {
+    // Legacy ignores g and preserves FNC-looking text, and literal backslashes.
+    for (index, expected, quality) in [(1, &b"#1A\\&B"[..], 0), (3, &b"_1A\\&B"[..], 50)] {
         let mut prepared = labels[index].clone();
         if let LabelElement::BarcodeDatamatrix(bc) = &mut prepared.elements[0] {
             bc.data_bytes = Some(expected.to_vec());

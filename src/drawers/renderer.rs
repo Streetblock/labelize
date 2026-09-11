@@ -968,7 +968,8 @@ impl Renderer {
                     )
                 }
             };
-            let data = barcodes::datamatrix_legacy::prepare_zpl_field(input)?;
+            // ZD421 CI13/CI27 probes preserve backslashes and pipes after FH.
+            // Do not apply the PDF417 substitutions suggested by the BX prose.
             if bc.barcode.ratio
                 == Some(crate::elements::barcode_datamatrix::DatamatrixRatio::Rectangular)
             {
@@ -979,7 +980,7 @@ impl Renderer {
             let size =
                 barcodes::datamatrix_legacy::zpl_symbol_size(bc.barcode.rows, bc.barcode.columns)?;
             barcodes::datamatrix_legacy::encode_with_ecc(
-                &data,
+                input,
                 format,
                 bc.barcode.quality as u16,
                 size,

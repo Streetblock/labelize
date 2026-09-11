@@ -123,26 +123,23 @@ as before; FH can insert these bytes after tokenization. There is no additional
 character-set transcoding of the transmitted Legacy bytes. Formats 1..5 still
 reject bytes outside their respective repertoires.
 
-The BX reference points to the PDF417 field rules. The
-[B7 reference](https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-b7.html)
-defines backslash-ampersand as CR/LF and doubled backslash as one backslash;
-it also mentions CI13 for a backslash. Those two substitutions are applied
-once to Legacy bytes after FH. Unknown and trailing backslashes retain their
-literal bytes. These are documentation-based rules, not new printer-confirmed
-observations; their FH interaction should be included in the eventual printer
-probe. BX says double pipe where B7 says doubled backslash: double pipe remains
-an explicit unresolved error rather than guessing its meaning. ECC 200 field
-contents are not passed through this Legacy preprocessing. Parameter g remains
-irrelevant for Legacy. The raw byte encoder performs no ZPL substitutions.
+Legacy fields pass their preserved bytes directly to the encoder after FH.
+Backslash-ampersand, doubled backslashes and double pipes stay literal; only
+explicit FH 0D/0A inserts CR/LF. Parameter g remains irrelevant for Legacy;
+ECC200 has its own independent escape processing.
 
-**Printer evidence supersedes the assumptions above for CI27:** the 2026-09-11
-ZD421 (V93.21.17Z) L01/L02 photo matches literal backslash-ampersand, doubled
-backslashes and doubled pipes. Only explicit FH 0D/0A matches CR/LF. The current
-preprocessing therefore has an open compatibility defect. The subsequent CI13
-comparison reproduces all six CI27 matrices exactly; switching to CI13 does
-not enable these substitutions on this device. See
-`examples/legacy-printer-study/README.md` and its machine-readable photo record.
-The implementation described above has not yet been corrected.
+This follows the ZD421 (V93.21.17Z) L01-L04 printer observations: CI13 and CI27
+produce identical matrices for all six ECC000/F6 probe fields. See
+`examples/legacy-printer-study/README.md` and its machine-readable photo records.
+The BX reference suggests PDF417-like escapes, but applying B7 substitutions
+contradicted these measurements. The previous speculative substitutions and
+pipe rejection have therefore been removed, together with the unused
+`prepare_zpl_field` helper. The public byte encoder is unchanged.
+
+Literal handling is a consistent implementation policy across Legacy qualities;
+hardware confirmation currently covers ECC000/F6 on this firmware only. Other
+qualities and firmware may require separately evidenced compatibility behavior.
+Do not label this observation a universal interpretation of the Zebra manual.
 
 Rust API note: `BarcodeDatamatrixWithData`, `RecalledFieldData` and
 `RecalledField` now carry optional `data_bytes`. Existing struct-literal callers
