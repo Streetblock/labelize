@@ -18,17 +18,17 @@ const groups = [
 ];
 const settings = '^MD0^PR2^PW600^LL300^LH0,0^LS0^LT0^PON^PMN^LRN^FWN^CI27^CVY';
 const bx = '^BXN,5,0,23,23,6';
-const manifest = { status: 'prepared; not sent', settings: { dpi: 300, mediaMm: [50,25], upperTextMarginDots: 36, darkness: 15, speedIps: 2, ecc: 0, format: 6, symbolModules: 23, moduleDots: 5, ci: 27, cv: 'Y; reset N after each label' }, groups: [] };
+const manifest = { status: 'prepared; not sent', settings: { dpi: 300, mediaMm: [50,25], upperTextMarginDots: 36, barcodeTopDots: 78, darkness: 15, speedIps: 2, ecc: 0, format: 6, symbolModules: 23, moduleDots: 5, ci: 27, cv: 'Y; reset N after each label' }, groups: [] };
 let combined = '';
 for (const group of groups) {
-  let zpl = `~SD15\n^XA\n${settings}\n^FO20,36^A0N,22,19^FD${group.id} ${group.title}^FS\n`;
+  let zpl = `~SD15\n^XA\n${settings}\n^FO20,36^A0N,16,14^FD${group.id} ${group.title}^FS\n`;
   for (const [i, field] of group.fields.entries()) {
     const x = 25 + i*200;
     assert(x+23*5 <= 600);
-    zpl += `^FO${x},77^A0N,17,14^FD${field.caption}^FS\n`;
-    zpl += `^FO${x},108${bx}${field.fh ? '^FH#' : ''}^FD${field.data}^FS\n`;
+    zpl += `^FO${x},56^A0N,12,11^FD${field.caption}^FS\n`;
+    zpl += `^FO${x},78${bx}${field.fh ? '^FH#' : ''}^FD${field.data}^FS\n`;
   }
-  zpl += '^CVN\n^FO20,276^A0N,16,14^FD300dpi / SD15 / PR2 / ECC000 F6 / 23x23^FS\n^PQ1\n^XZ\n';
+  zpl += '^CVN\n^FO20,218^A0N,14,12^FD300dpi / SD15 / PR2 / ECC000 F6 / 23x23^FS\n^PQ1\n^XZ\n';
   assert.equal((zpl.match(/\^BX/g)||[]).length,3);
   assert.equal((zpl.match(/\^XA/g)||[]).length,1);
   assert.equal((zpl.match(/\^XZ/g)||[]).length,1);

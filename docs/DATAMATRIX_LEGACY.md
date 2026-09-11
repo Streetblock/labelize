@@ -135,6 +135,14 @@ an explicit unresolved error rather than guessing its meaning. ECC 200 field
 contents are not passed through this Legacy preprocessing. Parameter g remains
 irrelevant for Legacy. The raw byte encoder performs no ZPL substitutions.
 
+**Printer evidence supersedes the assumptions above for CI27:** the 2026-09-11
+ZD421 (V93.21.17Z) L01/L02 photo matches literal backslash-ampersand, doubled
+backslashes and doubled pipes. Only explicit FH 0D/0A matches CR/LF. The current
+preprocessing therefore has an open compatibility defect; CI13 comparison is
+next before deciding conditional behavior. See
+`examples/legacy-printer-study/README.md` and its machine-readable photo record.
+The implementation described above has not yet been corrected.
+
 Rust API note: `BarcodeDatamatrixWithData`, `RecalledFieldData` and
 `RecalledField` now carry optional `data_bytes`. Existing struct-literal callers
 must initialize it. For parsed Legacy fields it is authoritative; callers

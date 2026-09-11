@@ -1,0 +1,20 @@
+{
+  "sentAt": "2026-09-11T10:13:27.332Z",
+  "host": "10.100.1.37",
+  "port": 9100,
+  "labels": 2,
+  "copiesEach": 1,
+  "status": "photo received: all six symbols complete; see compact-photo-observation.json",
+  "sha256": "fa69d5dfcc7ffda7d68cb7ba9c0e12a85df9e1e2b6cd270706e3a9e3a9c27dc0",
+  "layout": {
+    "dpi": 300,
+    "widthMm": 50,
+    "heightMm": 25,
+    "topTextDots": 36,
+    "barcodeTopDots": 78,
+    "moduleDots": 5,
+    "symbolModules": 23,
+    "darkness": 15,
+    "speedIps": 2
+  }
+}

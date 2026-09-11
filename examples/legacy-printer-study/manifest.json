@@ -7,6 +7,7 @@
       25
     ],
     "upperTextMarginDots": 36,
+    "barcodeTopDots": 78,
     "darkness": 15,
     "speedIps": 2,
     "ecc": 0,
@@ -39,7 +40,7 @@
       ],
       "hypothesis": "All three matrices should agree if backslash-& becomes CR/LF and FH runs before Legacy escapes. Agreement alone is not raw-byte decoding.",
       "file": "l01-300dpi.zpl",
-      "sha256": "a4ac3ba35ef5635f449772fc8033a912e1cd881275822b4c9fb0b2b75c18c270"
+      "sha256": "a250bdc6d38ea8cd7025edb64905351cfb28229ce5b1f11acf8d9515b28c3102"
     },
     {
       "id": "L02",
@@ -63,7 +64,7 @@
       ],
       "hypothesis": "First two matrices should agree if doubled backslash becomes one. Third is unresolved: record matrix equality/difference, blank output, or exact INVALID code without assuming a mapping.",
       "file": "l02-300dpi.zpl",
-      "sha256": "cd07bf799ffee7966b4d68880c9ae97a218222aadd1bcf64f590855fac31070e"
+      "sha256": "615b2922269c584e4a89aff9eb51820171304cf60f4e0a833f5e9322211798ff"
     }
   ]
 }

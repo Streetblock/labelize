@@ -11,7 +11,9 @@ that all checks below have already passed on the eventual submission commit.
 - The ZD421 500/501 boundary is recorded in `DATAMATRIX_LEGACY.md`, including
   evidence limits and the deliberate difference from the generic encoder.
 - Two small native printer jobs for CR/LF, FH order, backslash and double pipe
-  are prepared in `examples/legacy-printer-study`. Physical outcomes pending.
+  are printed and evaluated in `examples/legacy-printer-study`. CI27 preserves
+  literal backslashes and pipes; all six photo matrices match known-byte
+  candidates. This exposes a remaining preprocessing defect.
 - Read-only three-way merge inspection against PR #55 commit `c410a33` using
   base `c5ae397` found textual conflicts in `src/barcodes/mod.rs` and
   `src/drawers/renderer.rs`. The change is now integrated in this branch:
@@ -27,8 +29,9 @@ that all checks below have already passed on the eventual submission commit.
 
 ## Remaining, in order
 
-1. Record L01/L02 device outcomes. Resolve double-pipe behavior based on
-   evidence; select any needed follow-ups for CI13, overlapping escapes and
+1. L01/L02 CI27 outcomes are recorded. Repeat with CI13, then correct the
+   incompatible Rust escape substitutions and double-pipe rejection. Select
+   any needed follow-ups for overlapping escapes and
    other ECC levels. Turn supported observations into targeted regression tests.
    Keep raw encoder bytes separate from ZPL preprocessing.
 2. Reconcile with upstream PR #54 (quality handling) and PR #55 (ECC200 field

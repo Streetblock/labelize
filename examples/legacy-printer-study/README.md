@@ -23,8 +23,8 @@ Do not assume `||` means backslash before observing the result.
 
 These first probes do not settle CI13 differences, unknown/trailing escapes,
 single-pass behavior of overlapping sequences, or other ECC levels. Choose
-follow-up probes based on the initial outcomes. No new hardware outcomes have
-yet been recorded here. Keep observations separate from the generated manifest.
+follow-up probes based on the initial outcomes. Keep observations separate from
+the generated manifest. See the measured outcome below.
 
 Regenerate with `node examples/legacy-printer-study/generate.mjs` from the repo
 root. The script checks field counts and horizontal bounds; it does not send
@@ -34,3 +34,32 @@ convert line endings on checkout.
 References:
 - [Zebra BX](https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-bx.html)
 - [Zebra B7 field rules](https://docs.zebra.com/us/en/printers/software/zpl-pg/c-zpl-zpl-commands/r-zpl-b7.html)
+
+## ZD421 photo outcome, 2026-09-11
+
+The compact layout (barcode top 78 dots, bottom 193 dots) printed all six
+symbols completely. The photo and sampling details are identified in
+`compact-photo-observation.json`; the sent job is in
+`compact-print-observation.json`. Printer: ZD421-300dpi, V93.21.17Z.
+
+| Position | Observed matching candidate bytes (hex) | Meaning |
+| --- | --- | --- |
+| L01 left | 41 5C 26 42 | Literal backslash and ampersand |
+| L01 middle | 41 0D 0A 42 | FH-created CR/LF |
+| L01 right | 41 5C 26 42 | FH-created literal backslash and ampersand |
+| L02 left | 41 5C 5C 42 | Two literal backslashes |
+| L02 middle | 41 5C 42 | One FH-created backslash |
+| L02 right | 41 7C 7C 42 | Two literal pipes |
+
+Each sampled 23x23 matrix matches its known-byte candidate at all 529 modules.
+All six matches persist at common thresholds 130 through 150 in steps of 5.
+Candidates use the Toolkit raw Legacy encoder: this is a matrix comparison,
+not an independent scanner decode. No INVALID diagnostic appears.
+
+For these CI27 settings, this contradicts the current Rust preprocessing:
+backslash-ampersand must not be converted to CR/LF, doubled backslashes must
+not collapse, and double pipe must not be rejected. Production code has not
+yet been changed. Repeat the same fields with CI13 next to establish whether
+the rules depend on character-set selection; do not generalize this outcome
+to every firmware, character set or ECC level. Original manifest hypotheses
+are retained as hypotheses, not measured results.
