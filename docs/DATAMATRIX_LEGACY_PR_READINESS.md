@@ -13,8 +13,17 @@ that all checks below have already passed on the eventual submission commit.
 - Two small native printer jobs for CR/LF, FH order, backslash and double pipe
   are prepared in `examples/legacy-printer-study`. Physical outcomes pending.
 - Read-only three-way merge inspection against PR #55 commit `c410a33` using
-  base `c5ae397` finds textual conflicts in `src/barcodes/mod.rs` and
-  `src/drawers/renderer.rs`. No merge was performed by this inspection.
+  base `c5ae397` found textual conflicts in `src/barcodes/mod.rs` and
+  `src/drawers/renderer.rs`. The change is now integrated in this branch:
+  both encoder modules are retained, Legacy runs its own preprocessing first,
+  ECC200 uses ZPL escapes only when enabled, and EPL retains literal ECC200.
+  A mixed-quality document test covers escape-path and field-state isolation.
+- Integration validation: formatting and `cargo clippy --lib -- -D warnings`
+  pass; 168 library/DataMatrix/parser/hex tests and all 120 golden tests pass.
+  Both diff reports were regenerated (51 carrier labels, 73 synthetic labels).
+  Outputs match PR #55's existing render artifacts; only its expected USPS
+  (2.72% to 2.40%) and UPS SurePost (3.74% to 3.59%) improvements differ from
+  the preceding Legacy checkpoint. References and tolerances are unchanged.
 
 ## Remaining, in order
 
@@ -24,10 +33,8 @@ that all checks below have already passed on the eventual submission commit.
    Keep raw encoder bytes separate from ZPL preprocessing.
 2. Reconcile with upstream PR #54 (quality handling) and PR #55 (ECC200 field
    escapes), choosing the final base after their current upstream state is
-   checked. The Legacy branch already includes the #54 fix. Resolve the two
-   known conflicts, and review the jointly modified parser, EPL path and
-   DataMatrix element even where Git reports no textual conflict. Verify
-   ECC200 escapes never run through Legacy preprocessing and vice versa.
+   checked. The Legacy branch now includes both fixes. Recheck upstream changes
+   before submission; the integration was against #55 commit `c410a33`.
 3. Review public struct changes: `BarcodeDatamatrixWithData`, `RecalledFieldData`
    and `RecalledField` gained optional `data_bytes`. Document struct-literal
    migration and the requirement to update/clear bytes when replacing display

@@ -145,3 +145,37 @@ fn ecc200_does_not_use_legacy_field_substitutions() {
     let crlf = rendered(b"^XA^FO20,20^BXN,2,200^FH_^FDAB_0D_0A12^FS^XZ").unwrap();
     assert_ne!(escaped, crlf);
 }
+
+#[test]
+fn switching_legacy_and_ecc200_keeps_escape_paths_isolated() {
+    let sources = [
+        "^XA^FO20,20^BXN,2,200,0,0,6,#^FD#1A\\&B^FS^XZ",
+        "^XA^FO20,20^BXN,2,0,0,0,6,#^FD#1A\\&B^FS^XZ",
+        "^XA^FO20,20^BXN,2,200^FD_1A\\&B^FS^XZ",
+        "^XA^FO20,20^BXN,2,50^FD_1A\\&B^FS^XZ",
+    ];
+    let labels = ZplParser::new().parse(sources.join("").as_bytes()).unwrap();
+    assert_eq!(labels.len(), sources.len());
+    for (label, source) in labels.iter().zip(sources) {
+        let mut output = Cursor::new(Vec::new());
+        Renderer::new()
+            .draw_label_as_png(label, &mut output, DrawerOptions::default())
+            .unwrap();
+        assert_eq!(output.into_inner(), rendered(source.as_bytes()).unwrap());
+    }
+    // Legacy ignores g and preserves FNC-looking text, but expands CR/LF.
+    for (index, expected, quality) in [(1, &b"#1A\r\nB"[..], 0), (3, &b"_1A\r\nB"[..], 50)] {
+        let mut prepared = labels[index].clone();
+        if let LabelElement::BarcodeDatamatrix(bc) = &mut prepared.elements[0] {
+            bc.data_bytes = Some(expected.to_vec());
+        }
+        assert_rendered_bytes(&prepared, expected, quality);
+        assert_eq!(rendered(sources[index].as_bytes()).unwrap(), {
+            let mut output = Cursor::new(Vec::new());
+            Renderer::new()
+                .draw_label_as_png(&prepared, &mut output, DrawerOptions::default())
+                .unwrap();
+            output.into_inner()
+        });
+    }
+}

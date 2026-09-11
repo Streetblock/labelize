@@ -985,6 +985,14 @@ impl Renderer {
                 size,
             )?
             .to_image(scale as usize, scale as usize)
+        } else if bc.barcode.escape != 0 {
+            barcodes::datamatrix::encode_zpl(
+                bc.data.as_bytes(),
+                scale,
+                bc.barcode.rows,
+                bc.barcode.columns,
+                bc.barcode.escape,
+            )?
         } else {
             barcodes::datamatrix::encode(&bc.data, scale, bc.barcode.rows, bc.barcode.columns)?
         };
