@@ -63,3 +63,18 @@ yet been changed. Repeat the same fields with CI13 next to establish whether
 the rules depend on character-set selection; do not generalize this outcome
 to every firmware, character set or ECC level. Original manifest hypotheses
 are retained as hypotheses, not measured results.
+
+## CI13 follow-up: L03/L04
+
+Run `node examples/legacy-printer-study/generate-ci13.mjs` after the base
+`generate.mjs`. It creates `legacy-escapes-ci13-300dpi.zpl`, individual L03/L04
+files and `ci13-manifest.json`. Assertions verify that all six complete barcode
+field commands are unchanged from L01/L02. Only CI selection and identifying
+titles differ; CI27 is restored after the barcode fields on each label.
+
+The two labels were sent once to the printer socket on 2026-09-11; physical
+outcome is pending. See `ci13-print-observation.json` for the transmitted hash
+and settings. A preceding sandbox connection attempt failed with EACCES before
+transmission. The successful permitted connection is the only transmitted job.
+Compare L03 with L01 and L04 with L02. Do not assume CI13 enables substitutions
+until the physical matrices or supported raw-byte decodes establish that.

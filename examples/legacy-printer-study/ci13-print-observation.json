@@ -1,0 +1,22 @@
+{
+  "sentAt": "2026-09-11T10:28:12.780Z",
+  "host": "10.100.1.37",
+  "port": 9100,
+  "labels": 2,
+  "copiesEach": 1,
+  "status": "sent to printer socket; physical result pending",
+  "sha256": "ea5da917bcc6888f9fd7cec750860084dff2798a4ff95cde969079c1b42ebd55",
+  "layout": {
+    "ci": 13,
+    "resetCi": 27,
+    "dpi": 300,
+    "widthMm": 50,
+    "heightMm": 25,
+    "topTextDots": 36,
+    "barcodeTopDots": 78,
+    "moduleDots": 5,
+    "symbolModules": 23,
+    "darkness": 15,
+    "speedIps": 2
+  }
+}
