@@ -182,11 +182,40 @@ The current encoder deliberately refuses lengths above 511 until the extended
 length convention is understood. That restriction does not implement Zebra's
 documented maximum. Storing only nine low-order bits (512 -> 0, 596 -> 84) is
 one observed approach in other code, but is not proven correct by this table.
-No new printer or decoder verification of these long inputs has been performed.
+No printer or decoder verification of the extended 512..596 convention has
+been established. The separate 500/501 printer observation below does not
+resolve that convention.
 
 A regression checks all 30 cells of the Zebra maximum-field table: the other
 29 cells must encode at their limit and reject one additional character. The
 ECC 000 / ID 1 cell explicitly records the unresolved limitation instead of
-pretending 511 is the documented maximum. A controlled 511/512/596/597 printer
-probe with recovered module bits and CRC/payload checks is the next evidence
-needed; table capacity alone does not define the transmitted length field.
+pretending 511 is the documented maximum. Recovered module bits and CRC/payload
+checks would be needed to establish an extended-length convention; table
+capacity alone does not define the transmitted length field.
+
+### ZD421 observation: 500 prints, 501 gives INVALID-L
+
+On 2026-09-11 the contributor reported that a ZD421 prints 500 repeated ASCII
+digits `1`, while 501 produces `INVALID - L` with validation enabled. The
+500-digit control succeeded with both explicit quality 0 and omitted quality.
+Settings: format 1, automatic dimensions, `^CI27`, `^CVY`, module size 3,
+300 dpi, 600x300 dots (50x25 mm media), `~SD15`, `^MD0`, `^PR2`.
+Firmware V93.21.17Z was recorded earlier, not queried again for this observation.
+The supplied control ZPL was counted: its left field has exactly 500 digits;
+the right field has 512 but no explicit physical result was reported for it.
+The initial assistant socket attempt timed out; subsequent physical outcomes
+were supplied by the contributor. These are user reports, not newly decoded
+matrix fixtures or claims of scanner verification.
+
+The test files and original report are preserved at the immutable Toolkit
+commit [080a0f2](https://github.com/Streetblock/zpl-toolkit/tree/080a0f2/examples/bx-printer-study):
+`05-legacy-length-endpoints.json`, `05-legacy-length-endpoints-300dpi.zpl`,
+and `05-user-500-control.txt`.
+
+This establishes the adjacent 500/501 boundary for the tested device and
+settings. It does not establish a universal 500-character Legacy limit.
+501 is representable in nine bits, so that rejection cannot be explained by
+nine-bit overflow. The generic Rust encoder still accepts 501..511 when they
+fit: this is a known difference from the tested printer. No unverified global
+limit is introduced. A device-specific validation policy and `^CV` diagnostic
+rendering remain separate follow-up work.
