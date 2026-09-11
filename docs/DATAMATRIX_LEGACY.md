@@ -138,8 +138,9 @@ irrelevant for Legacy. The raw byte encoder performs no ZPL substitutions.
 **Printer evidence supersedes the assumptions above for CI27:** the 2026-09-11
 ZD421 (V93.21.17Z) L01/L02 photo matches literal backslash-ampersand, doubled
 backslashes and doubled pipes. Only explicit FH 0D/0A matches CR/LF. The current
-preprocessing therefore has an open compatibility defect; CI13 comparison is
-next before deciding conditional behavior. See
+preprocessing therefore has an open compatibility defect. The subsequent CI13
+comparison reproduces all six CI27 matrices exactly; switching to CI13 does
+not enable these substitutions on this device. See
 `examples/legacy-printer-study/README.md` and its machine-readable photo record.
 The implementation described above has not yet been corrected.
 

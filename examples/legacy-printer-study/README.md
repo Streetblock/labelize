@@ -73,8 +73,23 @@ field commands are unchanged from L01/L02. Only CI selection and identifying
 titles differ; CI27 is restored after the barcode fields on each label.
 
 The two labels were sent once to the printer socket on 2026-09-11; physical
-outcome is pending. See `ci13-print-observation.json` for the transmitted hash
+outcome is recorded below. See `ci13-print-observation.json` for the transmitted hash
 and settings. A preceding sandbox connection attempt failed with EACCES before
 transmission. The successful permitted connection is the only transmitted job.
 Compare L03 with L01 and L04 with L02. Do not assume CI13 enables substitutions
 until the physical matrices or supported raw-byte decodes establish that.
+
+### CI13 measured outcome, 2026-09-11
+
+All six symbols are complete with no INVALID diagnostic. At common grayscale
+threshold 100, each sampled matrix equals its CI27 counterpart at all 529
+modules (L03 equals L01 field by field; L04 equals L02). The photo hash,
+manually checked symbol quadrilaterals, sampled rows and candidate differences
+are preserved in `ci13-photo-observation.json`. This is known-candidate matrix
+comparison, not independent decoding.
+
+CI13 does not enable the assumed substitutions on this device: backslash and
+ampersand, doubled backslashes and doubled pipes remain literal. FH 0D/0A still
+produces the CR/LF candidate. Correcting the Rust Legacy preprocessing is now
+the next implementation step; this evidence covers ECC000/F6 and CI13/CI27 on
+this firmware, not every Legacy quality or Zebra firmware.

@@ -4,7 +4,7 @@
   "port": 9100,
   "labels": 2,
   "copiesEach": 1,
-  "status": "sent to printer socket; physical result pending",
+  "status": "photo received: all six sampled matrices equal CI27 counterparts; see ci13-photo-observation.json",
   "sha256": "ea5da917bcc6888f9fd7cec750860084dff2798a4ff95cde969079c1b42ebd55",
   "layout": {
     "ci": 13,

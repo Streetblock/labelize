@@ -29,7 +29,7 @@ that all checks below have already passed on the eventual submission commit.
 
 ## Remaining, in order
 
-1. L01/L02 CI27 outcomes are recorded. Repeat with CI13, then correct the
+1. L01/L02 CI27 outcomes are recorded. CI13 matches CI27 for all six fields. Correct the
    incompatible Rust escape substitutions and double-pipe rejection. Select
    any needed follow-ups for overlapping escapes and
    other ECC levels. Turn supported observations into targeted regression tests.
