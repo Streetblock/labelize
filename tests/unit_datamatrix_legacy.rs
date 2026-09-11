@@ -112,6 +112,30 @@ fn convolutional_byte_capacity_and_size_limits_are_explicit() {
 }
 
 #[test]
+fn numeric_length_probes_preserve_explicit_generic_encoder_limits() {
+    // A device's reported AUTO 500/501 boundary must not become a global cap.
+    for size in [None, Some(49)] {
+        for length in [500, 501, 511] {
+            assert!(datamatrix_legacy::encode(&vec![b'1'; length], 1, size).is_ok());
+        }
+        for length in [512, 596, 597] {
+            let data = vec![b'1'; length];
+            let error = datamatrix_legacy::encode(&data, 1, size).unwrap_err();
+            assert!(error.contains("extended record-length semantics are unresolved"));
+            // Exercise the ZPL route as well: no truncation, wrap, or ECC200 fallback.
+            let dimension = size.unwrap_or(0);
+            let zpl = format!(
+                "^XA^BXN,1,0,{dimension},{dimension},1^FD{}^FS^XZ",
+                String::from_utf8(data).unwrap()
+            );
+            assert!(render(zpl.as_bytes())
+                .unwrap_err()
+                .contains("extended record-length semantics are unresolved"));
+        }
+    }
+}
+
+#[test]
 fn zebra_maximum_field_table_matches_except_unresolved_long_numeric_ecc000() {
     // Zebra BX "Maximum Field Sizes", columns format IDs 1 through 6.
     let rows = [
