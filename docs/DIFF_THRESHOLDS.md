@@ -252,6 +252,10 @@ implementation and Labelary skip it.
 
 ## Updating References
 
+`datamatrix_dimensions` uses a **0.0%** tolerance against its independent
+Labelary reference. It covers ECC200 rectangular size constraints and the
+row-only capacity boundary; see [DATAMATRIX_DIMENSIONS.md](DATAMATRIX_DIMENSIONS.md).
+
 The `print_mirror`, `print_mirror_width`, and `print_mirror_inverted` fixtures
 have a strict pixel-for-pixel check in `tests/unit_print_mirror.rs` in addition
 to the golden suite. Their independent Labelary references and measured
