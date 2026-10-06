@@ -1,14 +1,29 @@
 use image::{Rgba, RgbaImage};
-use qrcode::types::EcLevel;
+use qrcode::bits::Bits;
+use qrcode::types::{EcLevel, QrError, Version};
 use qrcode::{bits::encode_auto, canvas::Canvas, ec::construct_codewords};
 
-use crate::elements::barcode_qr::QrErrorCorrectionLevel;
+use crate::elements::barcode_qr::{QrCharacterMode, QrErrorCorrectionLevel};
 
 /// Generate a QR code image using a proper QR code encoder.
 pub fn encode(
     content: &str,
     magnification: i32,
     ec_level: QrErrorCorrectionLevel,
+) -> Result<RgbaImage, String> {
+    encode_with_mode(content, magnification, ec_level, QrCharacterMode::Automatic)
+}
+
+/// Encode automatic data or one explicit Numeric, Alphanumeric, or Byte segment.
+///
+/// Explicit modes never fall back to automatic segmentation. The selected mode
+/// changes the data codewords, while mask selection stays shared with `encode`.
+/// Kanji needs a Shift-JIS input path and is currently rejected.
+pub fn encode_with_mode(
+    content: &str,
+    magnification: i32,
+    ec_level: QrErrorCorrectionLevel,
+    mode: QrCharacterMode,
 ) -> Result<RgbaImage, String> {
     if content.is_empty() {
         return Err("QR code: empty content".to_string());
@@ -23,8 +38,7 @@ pub fn encode(
         QrErrorCorrectionLevel::H => EcLevel::H,
     };
 
-    let bits = encode_auto(content.as_bytes(), ec)
-        .map_err(|e| format!("QR code encoding failed: {}", e))?;
+    let bits = encode_segments(content.as_bytes(), ec, mode)?;
     let version = bits.version();
     let side = version.width() as u32;
     let (data, ecc) = construct_codewords(&bits.into_bytes(), version, ec)
@@ -57,4 +71,48 @@ pub fn encode(
     }
 
     Ok(img)
+}
+
+fn encode_segments(data: &[u8], ec: EcLevel, mode: QrCharacterMode) -> Result<Bits, String> {
+    match mode {
+        QrCharacterMode::Automatic => {
+            return encode_auto(data, ec).map_err(|e| format!("QR code encoding failed: {e}"));
+        }
+        QrCharacterMode::Numeric if !data.iter().all(u8::is_ascii_digit) => {
+            return Err("QR numeric mode requires ASCII digits 0-9".to_string());
+        }
+        QrCharacterMode::Alphanumeric
+            if !data.iter().all(|b| {
+                b.is_ascii_digit() || b.is_ascii_uppercase() || b" $%*+-./:".contains(b)
+            }) =>
+        {
+            return Err("QR alphanumeric mode requires 0-9, A-Z, space, or $%*+-./:".to_string());
+        }
+        QrCharacterMode::Kanji => {
+            return Err(
+                "QR manual Kanji mode is not supported (requires Shift-JIS data)".to_string(),
+            );
+        }
+        _ => {}
+    }
+
+    // Validate first: the numeric encoder assumes digits, and the alphanumeric
+    // encoder maps unsupported characters to zero. Try standard versions in
+    // order without ever changing the explicitly requested segment type.
+    for version in 1..=40 {
+        let mut bits = Bits::new(Version::Normal(version));
+        let result = match mode {
+            QrCharacterMode::Numeric => bits.push_numeric_data(data),
+            QrCharacterMode::Alphanumeric => bits.push_alphanumeric_data(data),
+            QrCharacterMode::Binary => bits.push_byte_data(data),
+            _ => unreachable!("automatic and Kanji modes handled above"),
+        }
+        .and_then(|()| bits.push_terminator(ec));
+        match result {
+            Ok(()) => return Ok(bits),
+            Err(QrError::DataTooLong) => continue,
+            Err(e) => return Err(format!("QR code encoding failed: {e}")),
+        }
+    }
+    Err("QR code encoding failed: data too long for the requested character mode".to_string())
 }

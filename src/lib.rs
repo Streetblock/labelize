@@ -3,6 +3,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub mod assets;
 pub mod barcodes;
+pub mod compatibility;
 pub mod drawers;
 pub mod elements;
 pub mod encodings;
@@ -17,6 +18,7 @@ pub(crate) mod tuning;
 #[cfg(feature = "skill")]
 pub mod skill;
 
+pub use compatibility::CompatibilityProfile;
 pub use drawers::renderer::Renderer;
 pub use elements::drawer_options::DrawerOptions;
 pub use elements::label_info::LabelInfo;

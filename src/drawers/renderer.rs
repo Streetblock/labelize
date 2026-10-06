@@ -5,6 +5,7 @@ use image::{Pixel, Rgba, RgbaImage};
 use imageproc::drawing;
 
 use crate::barcodes;
+use crate::compatibility::CompatibilityProfile;
 use crate::elements::barcode_128::BarcodeMode;
 use crate::elements::drawer_options::DrawerOptions;
 use crate::elements::field_orientation::FieldOrientation;
@@ -41,6 +42,22 @@ impl Renderer {
         label: &LabelInfo,
         output: &mut dyn Write,
         options: DrawerOptions,
+    ) -> Result<(), String> {
+        self.draw_label_as_png_with_profile(label, output, options, CompatibilityProfile::default())
+    }
+
+    /// Render with an explicit interpretation policy.
+    ///
+    /// The experimental Zebra profile is for ZPL labels only. It currently
+    /// honors explicit QR character modes, with the same mask policy, fonts
+    /// and rasterizer as the Labelary profile. Resolution, antialiasing and
+    /// PNG encoding remain controlled by `DrawerOptions`.
+    pub fn draw_label_as_png_with_profile(
+        &self,
+        label: &LabelInfo,
+        output: &mut dyn Write,
+        options: DrawerOptions,
+        profile: CompatibilityProfile,
     ) -> Result<(), String> {
         let options = options.with_defaults();
         let mut state = DrawerState::new();
@@ -80,10 +97,10 @@ impl Renderer {
                 for pixel in buf.pixels_mut() {
                     *pixel = Rgba([0, 0, 0, 0]);
                 }
-                self.draw_element(buf, element, &options, &mut state)?;
+                self.draw_element(buf, element, &mut state, profile)?;
                 images::reverse_print::reverse_print(buf, &mut canvas);
             } else {
-                self.draw_element(&mut canvas, element, &options, &mut state)?;
+                self.draw_element(&mut canvas, element, &mut state, profile)?;
             }
         }
 
@@ -134,8 +151,8 @@ impl Renderer {
         &self,
         canvas: &mut RgbaImage,
         element: &LabelElement,
-        options: &DrawerOptions,
         state: &mut DrawerState,
+        profile: CompatibilityProfile,
     ) -> Result<(), String> {
         match element {
             LabelElement::Text(text) => self.draw_text(canvas, text, state),
@@ -168,7 +185,7 @@ impl Renderer {
             LabelElement::BarcodePdf417(bc) => self.draw_barcode_pdf417(canvas, bc),
             LabelElement::BarcodeAztec(bc) => self.draw_barcode_aztec(canvas, bc),
             LabelElement::BarcodeDatamatrix(bc) => self.draw_barcode_datamatrix(canvas, bc),
-            LabelElement::BarcodeQr(bc) => self.draw_barcode_qr(canvas, bc, options),
+            LabelElement::BarcodeQr(bc) => self.draw_barcode_qr(canvas, bc, profile),
             LabelElement::Maxicode(mc) => self.draw_maxicode(canvas, mc),
             LabelElement::BarcodeUcpe(bc) => self.draw_barcode_upce(canvas, bc),
             _ => Ok(()), // Config/template elements are not drawn
@@ -1278,7 +1295,7 @@ impl Renderer {
         &self,
         canvas: &mut RgbaImage,
         bc: &crate::elements::barcode_qr::BarcodeQrWithData,
-        _options: &DrawerOptions,
+        profile: CompatibilityProfile,
     ) -> Result<(), String> {
         // Labelary draws nothing for a QR field whose payload is empty
         // (`^FD^FS`, or a prefix-only ^FD like `^FDQA,` that parses to no
@@ -1287,11 +1304,18 @@ impl Renderer {
         if bc.data.is_empty() {
             return Ok(());
         }
-        let (input_data, ec, _) = bc.get_input_data()?;
+        let (input_data, ec, mode) = bc.get_input_data()?;
         if input_data.is_empty() {
             return Ok(());
         }
-        let img = barcodes::qrcode::encode(&input_data, bc.barcode.magnification, ec)?;
+        let img = match profile {
+            CompatibilityProfile::Labelary => {
+                barcodes::qrcode::encode(&input_data, bc.barcode.magnification, ec)?
+            }
+            CompatibilityProfile::ZebraExperimental => {
+                barcodes::qrcode::encode_with_mode(&input_data, bc.barcode.magnification, ec, mode)?
+            }
+        };
 
         let quiet_zone_px = 4 * bc.barcode.magnification;
 
