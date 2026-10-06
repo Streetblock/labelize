@@ -30,7 +30,7 @@ fn pixels(png: &[u8]) -> GrayImage {
     image::load_from_memory(png).unwrap().to_luma8()
 }
 
-fn decode(png: &[u8]) -> (u32, DecoderRXingResult) {
+fn modules(png: &[u8]) -> Vec<Vec<bool>> {
     let image = pixels(png);
     let dark: Vec<_> = image
         .enumerate_pixels()
@@ -42,17 +42,47 @@ fn decode(png: &[u8]) -> (u32, DecoderRXingResult) {
     let max_y = dark.iter().map(|p| p.1).max().unwrap();
     assert_eq!(max_x - min_x, max_y - min_y);
     let side = (max_x - min_x + 1) / 2;
-    let matrix: Vec<Vec<bool>> = (0..side)
+    (0..side)
         .map(|y| {
             (0..side)
                 .map(|x| image.get_pixel(min_x + 2 * x, min_y + 2 * y)[0] < 128)
                 .collect()
         })
-        .collect();
+        .collect()
+}
+
+fn decode(png: &[u8]) -> (u32, DecoderRXingResult) {
+    let matrix = modules(png);
     (
-        side,
+        matrix.len() as u32,
         rxing::qrcode::decoder::qrcode_decoder::decode_bool_array(&matrix).unwrap(),
     )
+}
+
+#[test]
+fn q01_profiles_preserve_the_recorded_labelary_and_explicit_byte_matrices() {
+    // The Byte fixture is the PR52 matrix visually matched by the user to the
+    // native print; it is not represented as an independently decoded scan.
+    for (profile, expected) in [
+        (
+            Profile::Labelary,
+            include_str!("../testdata/qr-profiles/q01-labelary.txt"),
+        ),
+        (
+            Profile::ZebraExperimental,
+            include_str!("../testdata/qr-profiles/q01-explicit-byte.txt"),
+        ),
+    ] {
+        let expected: Vec<Vec<bool>> = expected
+            .lines()
+            .map(|row| row.bytes().map(|bit| bit == b'1').collect())
+            .collect();
+        assert_eq!(
+            modules(&render(Q01, Some(profile)).unwrap()),
+            expected,
+            "{profile}: full Q01 matrix"
+        );
+    }
 }
 
 #[test]
