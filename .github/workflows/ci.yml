@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, main, integration/render-profiles]
   pull_request:
     branches: [master, main]
 
@@ -30,6 +30,8 @@ jobs:
       - name: Unit & integration tests
         run: cargo test --lib --test 'unit_*' --features skill -- --test-threads=4
         timeout-minutes: 8
+      - name: CLI and HTTP compatibility profiles
+        run: cargo test --features serve --bin labelize
       - name: Golden diff regression
         run: cargo test --test 'e2e_*' -- --test-threads=4
         timeout-minutes: 8
@@ -59,6 +61,8 @@ jobs:
       - name: Unit & integration tests
         run: cargo test --lib --test 'unit_*' --features skill -- --test-threads=4
         timeout-minutes: 8
+      - name: CLI and HTTP compatibility profiles
+        run: cargo test --features serve --bin labelize
       - name: Golden diff regression
         run: cargo test --test 'e2e_*' -- --test-threads=4
         timeout-minutes: 8

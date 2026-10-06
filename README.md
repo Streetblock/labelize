@@ -24,6 +24,11 @@ Labelize is a Rust engine that parses **ZPL** (Zebra Programming Language) and *
 
 A free public playground is hosted on Cloudflare Workers at **<https://labelize.764629910.workers.dev>** — paste a label, see it render, download PNG or PDF. No install, no signup, no data leaving the browser tab beyond the render call.
 
+This integration branch adds opt-in [compatibility profiles](docs/COMPATIBILITY_PROFILES.md):
+`labelary` remains the default; `zebra-experimental` honors explicit ZPL QR
+character modes in the Rust API, CLI and HTTP service. Current PNG/PDF output
+remains raster based.
+
 ## ✨ Why Labelize?
 
 Previewing thermal labels today usually means one of three compromises: send your label data to the [Labelary](http://labelary.com/) web API (third-party service, data-privacy concerns, ~400 ms per render), pay for a commercial SDK (often hundreds of dollars), or keep a physical printer around just to see what would print. Labelize is the self-hosted alternative:

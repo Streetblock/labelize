@@ -68,6 +68,24 @@ labelize convert data.txt --format zpl
 labelize convert label.zpl --width 100 --height 150 --dpmm 12
 ```
 
+### Select a compatibility profile
+
+The default `labelary` profile preserves the existing Labelary-oriented behavior.
+For ZPL, `zebra-experimental` respects explicit QR Numeric, Alphanumeric and Byte
+character-mode instructions. It is a limited, evidence-backed profile, not a
+complete emulation of every Zebra model or firmware.
+
+```bash
+labelize convert label.zpl --profile zebra-experimental
+labelize convert label.zpl --profile zebra-experimental -t pdf
+```
+
+Profiles select command interpretation independently of output type and
+antialiasing. PDF output currently embeds the rendered raster; this option does
+not introduce vector output. EPL accepts the `labelary` profile only. See
+[Compatibility profiles](COMPATIBILITY_PROFILES.md) for the supported differences
+and evidence limits.
+
 | Option       | Default | Description                              |
 |-------------|---------|------------------------------------------|
 | `--width`   | 102     | Label width in mm                        |
@@ -76,6 +94,7 @@ labelize convert label.zpl --width 100 --height 150 --dpmm 12
 | `-f, --format`  | auto    | Input format: `zpl` or `epl`         |
 | `-t, --type`    | png     | Output type: `png` or `pdf`          |
 | `-o, --output`  | auto    | Output file path                     |
+| `--profile` | labelary | `labelary` or `zebra-experimental` (ZPL only) |
 
 ### Multi-label files
 
@@ -102,6 +121,16 @@ labelize serve
 ```bash
 labelize serve --host 127.0.0.1 --port 3000
 ```
+
+### Set the server's default profile
+
+```bash
+labelize serve --default-profile zebra-experimental
+```
+
+The server normally starts with `--default-profile labelary`. Each server instance
+keeps its own default. Requests without a `profile` query use that default; an
+explicit query such as `?profile=labelary` overrides it for that request only.
 
 ### Health check
 
@@ -148,12 +177,28 @@ curl -X POST "http://localhost:8080/convert?width=100&height=62&dpmm=12" \
   -o label.png
 ```
 
+### Select a compatibility profile via HTTP
+
+```bash
+curl -X POST "http://localhost:8080/convert?profile=zebra-experimental" \
+  -H "Content-Type: application/zpl" \
+  --data-binary @label.zpl \
+  -o label.png
+```
+
+The profile also applies when `output=pdf` is requested. An unknown or empty
+`profile` value, or `zebra-experimental` with `application/epl`, returns HTTP 400.
+Omitting `profile` uses the configured server default (`labelary` unless changed
+at startup). If the server default is `zebra-experimental`, EPL requests must
+explicitly select `?profile=labelary`; otherwise they return HTTP 400.
+
 | Parameter | Default | Description             |
 |-----------|---------|-------------------------|
 | `width`   | 102     | Label width in mm       |
 | `height`  | 152     | Label height in mm      |
 | `dpmm`    | 8       | Dots per mm             |
 | `output`  | png     | Output format: png/pdf  |
+| `profile` | server default | `labelary` or `zebra-experimental` (ZPL only) |
 
 ---
 
